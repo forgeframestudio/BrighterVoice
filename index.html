@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f7fbff">
+<title>BrighterVoice</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#102a43}
+*{box-sizing:border-box} body{margin:0;background:#f7fbff;min-height:100vh}
+header{padding:calc(12px + env(safe-area-inset-top)) 16px 10px;display:flex;justify-content:space-between;align-items:center;background:white;box-shadow:0 1px 8px #0001}
+.brand{font-size:24px;font-weight:800}.brand span{color:#1677ff}.tag{font-size:12px;color:#627d98}
+button{font:inherit;border:0}.gear{font-size:24px;background:#eaf4ff;border-radius:14px;padding:10px}
+main{max-width:700px;margin:auto;padding:14px 14px calc(110px + env(safe-area-inset-bottom))}
+.prompt{text-align:center;font-size:22px;font-weight:800;margin:8px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.tile{min-height:112px;border-radius:22px;background:white;box-shadow:0 3px 14px #17324d18;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:19px;font-weight:800;touch-action:none;border:4px solid transparent}
+.tile .emoji{font-size:42px}.tile.active{border-color:#1677ff;transform:scale(.98)}
+.sentence{position:fixed;left:0;right:0;bottom:0;background:white;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -3px 16px #0002;display:flex;gap:8px;align-items:center}
+.words{flex:1;min-height:54px;background:#eef6ff;border-radius:16px;padding:8px 12px;font-size:17px;font-weight:700;display:flex;align-items:center}
+.speak{background:#1677ff;color:white;border-radius:16px;padding:16px 18px;font-weight:900;font-size:18px}
+.clear{background:#ffe9e9;border-radius:16px;padding:16px 12px}
+.panel{position:fixed;inset:0;background:#f7fbff;z-index:5;padding:calc(18px + env(safe-area-inset-top)) 18px 20px;display:none;overflow:auto}
+.panel.show{display:block}.panel h2{margin-top:8px}.close{float:right;background:#eaf4ff;border-radius:12px;padding:10px 14px}
+label{display:block;font-weight:800;margin:18px 0 6px}input{width:100%;padding:14px;border:2px solid #cbdcec;border-radius:14px;font-size:17px}
+.add{margin-top:10px;background:#1677ff;color:#fff;padding:13px 16px;border-radius:14px;font-weight:800}
+.note{font-size:13px;color:#627d98;line-height:1.4}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,1fr)}.tile{min-height:135px}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">Brighter<span>Voice</span> ☀️</div><div class="tag">Every Voice Matters • free prototype</div></div><button class="gear" id="settings">⚙️</button></header>
+<main>
+<div class="prompt">What do you want to say?</div>
+<div class="grid" id="grid"></div>
+</main>
+<div class="sentence"><button class="clear" id="clear">✕</button><div class="words" id="words">Touch a choice…</div><button class="speak" id="speak">🔊 Speak</button></div>
+<div class="panel" id="panel"><button class="close" id="close">Done</button><h2>Caregiver setup</h2><p class="note">Add a custom word or phrase. This prototype stores it only in this browser on this device.</p><label>Word or phrase</label><input id="customText" placeholder="Example: Grandma"><label>Picture / emoji</label><input id="customEmoji" placeholder="Example: 👵"><button class="add" id="add">Add communication button</button><h3>Touch controls</h3><p class="note">Tap any large button to add it. You can also keep your finger down and slide across buttons; the highlighted choice is selected when you lift your finger.</p></div>
+<script>
+const starter=[
+["I want","🙋"],["I need","💙"],["I feel","🙂"],["Yes","✅"],["No","❌"],["Help","👐"],
+["Stop","🛑"],["Bathroom","🚻"],["Water","💧"],["Food","🍽️"],["I'm hurt","🤕"],["Mom","👩"],
+["Dad","👨"],["Home","🏠"],["More","➕"],["All done","🏁"]
+];
+let custom=JSON.parse(localStorage.getItem("bv-custom")||"[]");
+let sentence=[];
+const grid=document.getElementById("grid"), words=document.getElementById("words");
+function render(){
+ grid.innerHTML="";
+ [...starter,...custom].forEach(([text,emoji])=>{
+  const b=document.createElement("button"); b.className="tile"; b.dataset.text=text;
+  b.innerHTML=`<div class="emoji">${emoji||"💬"}</div><div>${text}</div>`;
+  grid.appendChild(b);
+ });
+}
+function update(){words.textContent=sentence.length?sentence.join(" ") : "Touch a choice…";}
+function choose(text){sentence.push(text);update(); if(navigator.vibrate) navigator.vibrate(20);}
+grid.addEventListener("click",e=>{const b=e.target.closest(".tile");if(b)choose(b.dataset.text)});
+let tracking=false,last=null;
+grid.addEventListener("pointerdown",e=>{tracking=true;last=null;e.target.closest(".tile")?.setPointerCapture?.(e.pointerId); highlight(e.clientX,e.clientY)});
+grid.addEventListener("pointermove",e=>{if(tracking)highlight(e.clientX,e.clientY)});
+grid.addEventListener("pointerup",e=>{if(tracking&&last)choose(last.dataset.text);tracking=false;clearHi()});
+grid.addEventListener("pointercancel",()=>{tracking=false;clearHi()});
+function highlight(x,y){clearHi();const el=document.elementFromPoint(x,y)?.closest?.(".tile");if(el){el.classList.add("active");last=el}}
+function clearHi(){document.querySelectorAll(".tile.active").forEach(x=>x.classList.remove("active"))}
+document.getElementById("speak").onclick=()=>{
+ const text=sentence.join(" ").trim(); if(!text)return;
+ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=.9; speechSynthesis.speak(u);
+};
+document.getElementById("clear").onclick=()=>{sentence=[];update()};
+const panel=document.getElementById("panel");
+document.getElementById("settings").onclick=()=>panel.classList.add("show");
+document.getElementById("close").onclick=()=>panel.classList.remove("show");
+document.getElementById("add").onclick=()=>{
+ const t=document.getElementById("customText").value.trim(), em=document.getElementById("customEmoji").value.trim();
+ if(!t)return; custom.push([t,em||"💬"]); localStorage.setItem("bv-custom",JSON.stringify(custom));
+ document.getElementById("customText").value="";document.getElementById("customEmoji").value="";render();
+};
+render();
+</script>
+</body></html>
