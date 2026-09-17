@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f7fbff">
+<title>BrighterVoice</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#102a43}
+*{box-sizing:border-box}
+html,body{overscroll-behavior:none}
+body{margin:0;background:#f7fbff;min-height:100vh;-webkit-tap-highlight-color:transparent}
+header{padding:calc(12px + env(safe-area-inset-top)) 16px 10px;display:flex;justify-content:space-between;align-items:center;background:#fff;box-shadow:0 1px 8px #0001}
+.brand{font-size:24px;font-weight:800}.brand span{color:#1677ff}.tag{font-size:12px;color:#627d98}
+button{font:inherit;border:0;cursor:pointer}.gear{font-size:24px;background:#eaf4ff;border-radius:14px;padding:10px}
+main{max-width:700px;margin:auto;padding:14px 14px calc(110px + env(safe-area-inset-bottom))}
+.prompt{text-align:center;font-size:22px;font-weight:800;margin:8px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;touch-action:none}
+.tile{min-height:112px;border-radius:22px;background:#fff;box-shadow:0 3px 14px #17324d18;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:19px;font-weight:800;border:4px solid transparent;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .06s,border-color .06s,background .06s}
+.tile *{pointer-events:none}.tile .emoji{font-size:42px}.tile.active{border-color:#1677ff;transform:scale(.97);background:#eaf4ff}
+.sentence{position:fixed;left:0;right:0;bottom:0;background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -3px 16px #0002;display:flex;gap:8px;align-items:center;z-index:3}
+.words{flex:1;min-height:54px;background:#eef6ff;border-radius:16px;padding:8px 12px;font-size:17px;font-weight:700;display:flex;align-items:center;overflow:auto}
+.speak{background:#1677ff;color:#fff;border-radius:16px;padding:16px 18px;font-weight:900;font-size:18px}.clear{background:#ffe9e9;border-radius:16px;padding:16px 12px}
+.panel{position:fixed;inset:0;background:#f7fbff;z-index:5;padding:calc(18px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom));display:none;overflow:auto}
+.panel.show{display:block}.panel h2{margin-top:8px}.close{float:right;background:#eaf4ff;border-radius:12px;padding:10px 14px}
+label{display:block;font-weight:800;margin:18px 0 6px}
+input,select{width:100%;padding:14px;border:2px solid #cbdcec;border-radius:14px;font-size:17px;background:#fff}
+.add{margin-top:10px;background:#1677ff;color:#fff;padding:13px 16px;border-radius:14px;font-weight:800}
+.note{font-size:13px;color:#627d98;line-height:1.45}.status{font-size:13px;color:#486581;margin-top:8px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,1fr)}.tile{min-height:135px}}
+</style>
+</head>
+<body>
+<header>
+<div><div class="brand">Brighter<span>Voice</span> ☀️</div><div class="tag">Every Voice Matters • free prototype</div></div>
+<button class="gear" id="settings" type="button" aria-label="Settings">⚙️</button>
+</header>
+
+<main><div class="prompt">What do you want to say?</div><div class="grid" id="grid"></div></main>
+
+<div class="sentence">
+<button class="clear" id="clear" type="button" aria-label="Clear">✕</button>
+<div class="words" id="words">Touch a choice…</div>
+<button class="speak" id="speak" type="button">🔊 Speak</button>
+</div>
+
+<div class="panel" id="panel">
+<button class="close" id="close" type="button">Done</button>
+<h2>Caregiver setup</h2>
+<p class="note">Add a custom word or phrase. It is stored only in this browser on this device.</p>
+<label for="customText">Word or phrase</label>
+<input id="customText" placeholder="Example: Grandma">
+<label for="customEmoji">Picture / emoji</label>
+<input id="customEmoji" placeholder="Example: 👵">
+<button class="add" id="add" type="button">Add communication button</button>
+
+<h3>Voice</h3>
+<p class="note">BrighterVoice uses the real speech voices provided by your phone/browser. Natural, enhanced and premium English voices are moved toward the top when available.</p>
+<label for="voiceSelect">Voice</label>
+<select id="voiceSelect"></select>
+<div id="voiceStatus" class="status">Loading voices…</div>
+<label for="rate">Speech speed: <span id="rateValue">0.90</span></label>
+<input id="rate" type="range" min="0.60" max="1.20" step="0.05" value="0.90">
+<label for="pitch">Pitch: <span id="pitchValue">1.00</span></label>
+<input id="pitch" type="range" min="0.75" max="1.25" step="0.05" value="1.00">
+<button class="add" id="testVoice" type="button">▶ Test voice</button>
+
+<h3>Touch controls</h3>
+<p class="note">A normal tap adds one word one time. Hold your finger down and smoothly slide across the board to add each new tile you cross. Sliding back over a tile during the same gesture will not duplicate it.</p>
+</div>
+
+<script>
+"use strict";
+
+const starter=[
+ ["I want","🙋"],["I need","💙"],["I feel","🙂"],["Yes","✅"],["No","❌"],["Help","👐"],
+ ["Stop","🛑"],["Bathroom","🚻"],["Water","💧"],["Food","🍽️"],["I'm hurt","🤕"],["Mom","👩"],
+ ["Dad","👨"],["Home","🏠"],["More","➕"],["All done","🏁"]
+];
+
+let custom=[];
+try{custom=JSON.parse(localStorage.getItem("bv-custom")||"[]");if(!Array.isArray(custom))custom=[]}catch(e){custom=[]}
+let sentence=[];
+
+const grid=document.getElementById("grid");
+const words=document.getElementById("words");
+
+function render(){
+ grid.innerHTML="";
+ [...starter,...custom].forEach(([text,emoji])=>{
+   const b=document.createElement("button");
+   b.type="button";
+   b.className="tile";
+   b.dataset.text=text;
+   const icon=document.createElement("div");icon.className="emoji";icon.textContent=emoji||"💬";
+   const label=document.createElement("div");label.textContent=text;
+   b.append(icon,label);
+   grid.appendChild(b);
+ });
+}
+function update(){words.textContent=sentence.length?sentence.join(" "):"Touch a choice…"}
+function choose(tile){
+ if(!tile)return;
+ const text=tile.dataset.text;
+ if(!text)return;
+ sentence.push(text);
+ update();
+ if(navigator.vibrate)navigator.vibrate(12);
+}
+
+/* TOUCH / MOUSE
+   No click handler is used on tiles, so pointer + click cannot double-add.
+   Tap selects immediately once.
+   Sliding selects each newly-entered tile once per gesture. */
+let gesture=false;
+let activePointer=null;
+let highlighted=null;
+let visited=new Set();
+
+function tileFromPoint(x,y){
+ const el=document.elementFromPoint(x,y);
+ const tile=el&&el.closest?el.closest(".tile"):null;
+ return tile&&grid.contains(tile)?tile:null;
+}
+function highlight(tile){
+ if(highlighted===tile)return;
+ if(highlighted)highlighted.classList.remove("active");
+ highlighted=tile;
+ if(highlighted)highlighted.classList.add("active");
+}
+function visit(tile){
+ if(!tile||visited.has(tile))return;
+ visited.add(tile);
+ choose(tile);
+}
+function finishGesture(){
+ gesture=false;
+ activePointer=null;
+ highlight(null);
+ visited.clear();
+}
+
+grid.addEventListener("pointerdown",e=>{
+ if(e.pointerType==="mouse"&&e.button!==0)return;
+ const tile=tileFromPoint(e.clientX,e.clientY)||e.target.closest(".tile");
+ if(!tile)return;
+ e.preventDefault();
+ gesture=true;
+ activePointer=e.pointerId;
+ visited.clear();
+ try{grid.setPointerCapture(e.pointerId)}catch(_){}
+ highlight(tile);
+ visit(tile);
+},{passive:false});
+
+grid.addEventListener("pointermove",e=>{
+ if(!gesture||e.pointerId!==activePointer)return;
+ e.preventDefault();
+ const tile=tileFromPoint(e.clientX,e.clientY);
+ highlight(tile);
+ visit(tile);
+},{passive:false});
+
+grid.addEventListener("pointerup",e=>{
+ if(!gesture||e.pointerId!==activePointer)return;
+ e.preventDefault();
+ try{grid.releasePointerCapture(e.pointerId)}catch(_){}
+ finishGesture();
+},{passive:false});
+
+grid.addEventListener("pointercancel",finishGesture);
+grid.addEventListener("lostpointercapture",()=>{if(gesture)finishGesture()});
+
+/* Fallback for older touch browsers that do not support PointerEvent. */
+if(!window.PointerEvent){
+ let touchVisited=new Set();
+ function touchTile(t){return tileFromPoint(t.clientX,t.clientY)}
+ grid.addEventListener("touchstart",e=>{
+   e.preventDefault();touchVisited.clear();
+   const tile=touchTile(e.changedTouches[0]);highlight(tile);
+   if(tile&&!touchVisited.has(tile)){touchVisited.add(tile);choose(tile)}
+ },{passive:false});
+ grid.addEventListener("touchmove",e=>{
+   e.preventDefault();const tile=touchTile(e.changedTouches[0]);highlight(tile);
+   if(tile&&!touchVisited.has(tile)){touchVisited.add(tile);choose(tile)}
+ },{passive:false});
+ grid.addEventListener("touchend",()=>{highlight(null);touchVisited.clear()},{passive:false});
+ grid.addEventListener("touchcancel",()=>{highlight(null);touchVisited.clear()},{passive:false});
+}
+
+/* VOICES */
+const hasSpeech=("speechSynthesis" in window)&&("SpeechSynthesisUtterance" in window);
+const voiceSelect=document.getElementById("voiceSelect");
+const voiceStatus=document.getElementById("voiceStatus");
+const rateInput=document.getElementById("rate");
+const pitchInput=document.getElementById("pitch");
+const rateValue=document.getElementById("rateValue");
+const pitchValue=document.getElementById("pitchValue");
+let voices=[];
+
+function voiceScore(v){
+ const name=(v.name||"").toLowerCase();
+ const lang=(v.lang||"").toLowerCase();
+ let score=0;
+ if(lang.startsWith("en-us"))score+=500;
+ else if(lang.startsWith("en-"))score+=400;
+ if(v.localService)score+=40;
+ if(v.default)score+=20;
+ if(/premium|enhanced|natural|neural/.test(name))score+=300;
+ if(/samantha|ava|allison|susan|serena|victoria|karen|moira|daniel|alex|tom|aaron|nicky|evan|zoe|joelle|jamie/.test(name))score+=180;
+ if(/microsoft.*(aria|jenny|guy|natural)/.test(name))score+=160;
+ if(/google.*(us )?english/.test(name))score+=120;
+ if(/compact|espeak|festival|robot|novelty/.test(name))score-=500;
+ return score;
+}
+function voiceLabel(v){
+ const n=(v.name||"").toLowerCase();
+ let tag="";
+ if(/premium|enhanced|natural|neural/.test(n))tag=" • Natural";
+ else if(v.localService)tag=" • Device";
+ return `${v.name} (${v.lang})${tag}${v.default?" • Default":""}`;
+}
+function loadVoices(){
+ if(!hasSpeech){
+   voiceSelect.innerHTML='<option>Speech unavailable</option>';
+   voiceSelect.disabled=true;
+   voiceStatus.textContent="This browser does not expose speech synthesis.";
+   return;
+ }
+ const available=speechSynthesis.getVoices()||[];
+ if(!available.length){
+   voiceStatus.textContent="Waiting for your phone to load its voices…";
+   return;
+ }
+ voices=[...available].sort((a,b)=>voiceScore(b)-voiceScore(a)||a.name.localeCompare(b.name));
+ const english=voices.filter(v=>/^en[-_]/i.test(v.lang||""));
+ const list=english.length?english:voices;
+ const prior=localStorage.getItem("bv-voice")||voiceSelect.value;
+ voiceSelect.innerHTML="";
+ list.forEach(v=>{
+   const option=document.createElement("option");
+   option.value=v.name;
+   option.textContent=voiceLabel(v);
+   voiceSelect.appendChild(option);
+ });
+ if(prior&&list.some(v=>v.name===prior))voiceSelect.value=prior;
+ else if(list[0])voiceSelect.value=list[0].name;
+ voiceStatus.textContent=`${list.length} voice${list.length===1?"":"s"} available. Best natural choices are listed first.`;
+}
+if(hasSpeech){
+ loadVoices();
+ speechSynthesis.addEventListener?.("voiceschanged",loadVoices);
+ if("onvoiceschanged" in speechSynthesis)speechSynthesis.onvoiceschanged=loadVoices;
+ setTimeout(loadVoices,100);
+ setTimeout(loadVoices,500);
+ setTimeout(loadVoices,1500);
+}
+
+voiceSelect.addEventListener("change",()=>localStorage.setItem("bv-voice",voiceSelect.value));
+rateInput.value=localStorage.getItem("bv-rate")||"0.90";
+pitchInput.value=localStorage.getItem("bv-pitch")||"1.00";
+
+function updateSpeechLabels(){
+ rateValue.textContent=Number(rateInput.value).toFixed(2);
+ pitchValue.textContent=Number(pitchInput.value).toFixed(2);
+}
+updateSpeechLabels();
+rateInput.addEventListener("input",()=>{localStorage.setItem("bv-rate",rateInput.value);updateSpeechLabels()});
+pitchInput.addEventListener("input",()=>{localStorage.setItem("bv-pitch",pitchInput.value);updateSpeechLabels()});
+
+function speakText(text){
+ text=(text||"").trim();
+ if(!text||!hasSpeech)return;
+ speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(text);
+ const selected=voices.find(v=>v.name===voiceSelect.value)||
+                voices.find(v=>/^en[-_]us/i.test(v.lang||""))||
+                voices.find(v=>/^en[-_]/i.test(v.lang||""))||
+                voices[0];
+ if(selected){u.voice=selected;u.lang=selected.lang}else u.lang="en-US";
+ u.rate=Number(rateInput.value);
+ u.pitch=Number(pitchInput.value);
+ u.volume=1;
+ /* iOS/Safari behaves more reliably when speak follows the user action directly. */
+ speechSynthesis.speak(u);
+}
+
+/* NORMAL APP BUTTONS */
+document.getElementById("speak").addEventListener("click",()=>speakText(sentence.join(" ")));
+document.getElementById("testVoice").addEventListener("click",()=>speakText("Hello. This is BrighterVoice. Every voice matters."));
+document.getElementById("clear").addEventListener("click",()=>{sentence=[];update()});
+
+const panel=document.getElementById("panel");
+document.getElementById("settings").addEventListener("click",()=>{panel.classList.add("show");loadVoices()});
+document.getElementById("close").addEventListener("click",()=>panel.classList.remove("show"));
+document.getElementById("add").addEventListener("click",()=>{
+ const t=document.getElementById("customText").value.trim();
+ const em=document.getElementById("customEmoji").value.trim();
+ if(!t)return;
+ custom.push([t,em||"💬"]);
+ localStorage.setItem("bv-custom",JSON.stringify(custom));
+ document.getElementById("customText").value="";
+ document.getElementById("customEmoji").value="";
+ render();
+});
+
+render();
+update();
+</script>
+</body>
+</html>
